@@ -1,0 +1,72 @@
+参考链接：http://blog.csdn.net/ul646691993/article/details/52736279
+         http://www.jb51.net/article/56676.htm
+下载链接：http://download.redis.io/releases/
+安装环境：Centos 7 64位，Redis-3.2.8
+安装gcc：yum install gcc-c++
+安装tcl：yum install tcl
+1、下载Redis
+    shell> cd /tmp
+    shell> wget http://download.redis.io/releases/redis-3.2.8.tar.gz
+2、解压
+    shell> tar -zxvf redis-3.2.8.tar.gz 
+3、编译安装
+    shell> cd redis-3.2.8
+    shell> make
+    shell> make install PREFIX=/usr/local/redis （安装的目录）
+4、配置
+    复制redis.conf 到 /etc
+    shell> cp redis.conf /etc/
+    shell> etc/redis.conf
+        修改daemonize配置项为yes，使Redis进程在后台运行
+            daemonize yes
+5、启动Redis
+    shell> cd /usr/local/redis/bin (/usr/local/redis/bin or /usr/local/bin)
+    shell> ./redis-server /etc/redis.conf 
+6、检查启动情况
+    shell> ps -ef | grep redis
+        root      6352     1  0 10:07 ?        00:00:00 ./redis-server 127.0.0.1:6379
+        root      6356 32731  0 10:07 pts/0    00:00:00 grep --color=auto redis
+7、Redis Desktop Manager Redis 图形化管理工具远程连接Redis
+	1)注释redis.conf文件中的 bind 127.0.0.1
+	2)设置Redis密码，在设置密码之前，首先要开启服务端，然后再用客户端进行连接，通过客户端来设置密码。
+		shell> cd /usr/local/redis/bin
+		shell> ./redis-server /etc/redis.conf
+		shell> ./redis-cli
+		127.0.0.1:6379> config set requirepass 123456
+		shell> ./redis-cli
+		127.0.0.1:6379> auth 123456
+		127.0.0.1:6379> quit
+		操作完成后返回OK，表示设置完成。
+	3)在Redis Desktop Manager尝试连接。
+8、添加开机启动项
+    让Redis开机运行可以将其添加到rc.local文件，也可将添加为系统服务service。
+    1)rc.local的方式
+        shell> echo "/usr/local/redis/bin/redis-server /etc/redis.conf" >> /etc/rc.local
+    2)添加service
+9、Redis安装后的可执行文件(/usr/local/redis/bin)
+    redis-server：Redis服务器端启动程序 
+    redis-cli：Redis客户端操作工具。也可以用telnet根据其纯文本协议来操作 
+    redis-benchmark：Redis性能测试工具 
+    redis-check-aof：数据修复工具 
+    redis-check-dump：检查导出工具
+10、Redis配置参数(redis.conf)
+    daemonize：是否以后台daemon方式运行
+    pidfile：pid文件位置
+    port：监听的端口号
+    timeout：请求超时时间(当客户端闲置多长时间后关闭连接)
+    loglevel：log信息级别(debug、verbose、notice、warning，默认为verbose)
+    logfile：log文件位置
+    databases：开启数据库的数量(默认数据库为0，可以使用SELECT 命令在连接上指定数据库id)
+    save * *：保存快照的频率，第一个*表示多长时间，第三个*表示执行多少次写操作。在一定时间内执行一定数量的写操作时，自动保存快照。可设置多个条件。
+    rdbcompression：是否使用压缩
+    dbfilename：指定本地数据库文件名，默认值为dump.rdb
+    dir：指定本地数据库存放目录
+    slaveof：设置当本机为slav服务时，设置master服务的IP地址及端口，在Redis启动时，它会自动从master进行数据同步
+    masterauth：当master服务设置了密码保护时，slav服务连接master的密码
+    requirepass foobared：设置Redis连接密码，如果配置了连接密码，客户端在连接Redis时需要通过AUTH 命令提供密码，默认关闭
+    maxclients：设置同一时间最大客户端连接数，默认无限制，如果设置 maxclients 0，表示不作限制。
+    maxmemory：指定Redis最大内存限制，Redis在启动时会把数据加载到内存中，达到最大内存后，Redis会先尝试清除已到期或即将到期的Key，当此方法处理 后，仍然到达最大内存设置，
+        将无法再进行写入操作，但仍然可以进行读取操作。Redis新的vm机制，会把Key存放内存，Value会存放在swap区(默认为no)
+    appendonly：是否开启appendonlylog，开启的话每次写操作会记一条log，这会提高数据抗风险能力，但影响效率。
+    appendfilename：指定更新日志文件名，默认为appendonly.aof
+    appendfsync：appendonlylog如何同步到磁盘。三个选项，分别是每次写都强制调用fsync、每秒启用一次fsync、不调用fsync等待系统自己同步
