@@ -1,0 +1,130 @@
+ redis集群
+https://yq.aliyun.com/articles/10129#
+摘要： Redis 是一个开源（BSD许可）的，内存中的数据结构存储系统，它可以用作数据库、缓存和消息中间件。 它支持多种类型的数据结构，如 字符串（strings）， 散列（hashes）， 列表（lists）， 集合（sets）， 有序集合（sorted sets） 与范围查询， bitmaps， hyperloglogs 和 地理空间（geospatial） 索引半径查询。
+
+Redis 是一个开源（BSD许可）的，内存中的数据结构存储系统，它可以用作数据库、缓存和消息中间件。 它支持多种类型的数据结构，如 字符串（strings）， 散列（hashes）， 列表（lists）， 集合（sets）， 有序集合（sorted sets） 与范围查询， bitmaps， hyperloglogs 和 地理空间（geospatial） 索引半径查询。 Redis 内置了 复制（replication），LUA脚本（Lua scripting）， LRU驱动事件（LRU eviction），事务（transactions） 和不同级别的 磁盘持久化（persistence）， 并通过 Redis哨兵（Sentinel）和自动 分区（Cluster）提供高可用性（high availability）。
+应用背景：
+
+试想在网站承受高并发访问压力的同时，还需要从海量数据中查询出满足条件的数据，并快速响应，我们必然想到的是将数据进行切片，把数据根据某种规则放入多个不同的服务器节点，来降低单节点服务器的压力。集群要实现的目的是要将不同的 key 分散放置到不同的 redis 节点。
+同时呢，Redis开创了一种新的数据存储思路，使用Redis，我们不用在面对功能单调的数据库时，把精力放在如何把大象放进冰箱这样的问题上，而是利用Redis灵活多变的数据结构和数据操作，为不同的大象构建不同的冰箱。希望你喜欢这个比喻
+下面我们就来搭建redis集群：
+redis从3.0版本后具有集群，在搭建集群之前:
+准备工作
+安装gcc:yum install gcc-c++
+
+  (*Linux上的gcc是Gnu的C语言编译器*)
+
+redis编译
+下载redis
+
+下载redis并通过winSCP(WinSCP是一个Windows环境下使用SSH的开源图形化SFTP客户端。同时支持SCP协议。它的主要功能就是在本地与远程计算机间安全的复制文件)上传到linux
+redis下载
+解压redis包
+
+解压redis
+编译
+
+root@localhost redis-3.0.2]# make install PREFIX=/usr/local/redis
+
+下面是编译好的文件
+编译
+启动redis
+前端启动模式
+
+[root@localhost bin]# ./redis-server 
+默认是前端启动，端口是6379
+
+后端启动模式
+
+1）复制redis.conf到指定目录 cp redis.conf /usr/local/redis/bin/
+2）修改配置文件
+修改配置文件
+3）后端启用
+[root@localhost bin]# ./redis-server redis.conf
+后端启用
+集群概念
+
+集群
+Redis 集群中内置了 16384 个哈希槽，当需要在 Redis 集群中放置一个 key-value 时，redis 先对 key 使用 crc16 算法算出一个结果，然后把结果对 16384 求余数，这样每个 key 都会对应一个编号在 0-16383 之间的哈希槽，redis 会根据节点数量大致均等的将哈希槽映射到不同的节点
+这里写图片描述
+Key:a
+计算a的hash值，例如值为100，100这个槽在server1上，所以a应该放到server1.
+Key:hello
+Hash值：10032，此槽在server2上。Hell可以应该存在server2.
+redis-cluster投票:容错
+
+这里写图片描述
+投票
+
+领着投票过程是集群中所有master参与,如果半数以上master节点与master节点通信超过(cluster-node-timeout),认为当前master节点挂掉.
+什么时候整个集群不可用(cluster_state:fail)?
+
+a:如果集群任意master挂掉,且当前master没有slave.集群进入fail状态,也可以理解成集群的slot映射[0-16383]不完成时进入fail状态. ps : redis-3.0.0.rc1加入cluster-require-full-coverage参数,默认关闭,打开集群兼容部分失败.
+b:如果集群超过半数以上master挂掉，无论是否有slave集群进入fail状态.
+
+ps:当集群不可用时,所有对集群的操作做都不可用，收到((error) CLUSTERDOWN The cluster is down)错误
+集群搭建
+结构
+
+集群中有三个节点的集群，每个节点有一主一备。需要6台虚拟机。
+搭建一个伪分布式的集群，使用6个redis实例来模拟。
+准备环境
+ruby
+
+搭建集群需要使用到官方提供的ruby脚本。
+安装ruby
+
+yum install ruby
+yum install rubygems
+
+redis-trib.rb
+
+redis集群管理工具redis-trib.rb
+
+[root@localhost ~]# cd redis-3.0.2
+[root@localhost redis-3.0.2]# cd src
+[root@localhost src]# ll *.rb
+-rwxrwxr-x. 1 root root 48141 Jun  4  2015 redis-trib.rb
+
+脚本需要的ruby包需要上传到linux服务。
+
+[root@localhost ~]# gem install redis-3.0.0.gem 
+Successfully installed redis-3.0.0
+1 gem installed
+Installing ri documentation for redis-3.0.0...
+Installing RDoc documentation for redis-3.0.0...
+
+开搭
+创建6个redis实例，端口号从7001~7006
+
+这里写图片描述
+打开custer-enable前面的注释
+
+这里写图片描述
+把创建集群的ruby脚步复制到redis-cluster目录下
+
+[root@localhost src]# cp *.rb    /usr/local/redis-cluster/
+
+启动redis实例
+
+首先写一个sh脚本文件
+这里写图片描述
+添加到comond命令中
+
+[root@localhost redis-cluster]# chmod +x startall.sh
+
+执行脚本文件
+这里写图片描述
+创建集群
+
+这里写图片描述
+这里写图片描述
+集群搭建成功！
+测试集群
+
+[root@localhost redis-cluster]# redis01/redis-cli -h 192.168.15.131 -p 7002  -c
+192.168.15.131:7002> set a 10
+-> Redirected to slot [15495] located at 192.168.15.131:7003
+OK
+192.168.15.131:7003> 
+
